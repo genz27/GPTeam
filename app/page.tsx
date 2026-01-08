@@ -98,7 +98,7 @@ export default function HomePage() {
   const loadData = async () => {
     try {
       const [accRes, settingsRes] = await Promise.all([
-        fetch('/api/team-accounts/status'),
+        fetch('/api/team-accounts/status', { credentials: 'include' }),
         fetch('/api/settings/public')
       ])
 
@@ -133,7 +133,8 @@ export default function HomePage() {
       const res = await fetch('/api/invite/use', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim(), email: email.trim(), teamAccountId: selectedId })
+        body: JSON.stringify({ code: code.trim(), email: email.trim(), teamAccountId: selectedId }),
+        credentials: 'include'
       })
       const data = await res.json()
       if (res.ok) {

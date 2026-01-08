@@ -3,10 +3,10 @@ import { getDb } from '@/lib/db'
 import { requireAccess } from '@/lib/serverAuth'
 
 export async function GET() {
-  try {
-    const guard = requireAccess()
-    if (guard) return guard
+  const guard = requireAccess()
+  if (guard) return guard
 
+  try {
     const db = getDb()
     const accounts = db.prepare(`
       SELECT id, name, max_seats, seats_entitled, seats_in_use, pending_invites, enabled, active_until
