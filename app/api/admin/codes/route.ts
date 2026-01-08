@@ -3,7 +3,7 @@ import { getDb, generateCode } from '@/lib/db'
 import { requireAdmin } from '@/lib/serverAuth'
 
 export async function GET() {
-  const guard = requireAdmin()
+  const guard = await requireAdmin()
   if (guard) return guard
 
   const db = getDb()
@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = requireAdmin()
+  const guard = await requireAdmin()
   if (guard) return guard
 
   const { count = 1, teamAccountId } = await req.json()

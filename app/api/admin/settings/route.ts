@@ -6,7 +6,7 @@ import { requireAdmin } from '@/lib/serverAuth'
 
 // 获取所有设置
 export async function GET() {
-  const guard = requireAdmin()
+  const guard = await requireAdmin()
   if (guard) return guard
 
   const settings = getAllSettings()
@@ -25,7 +25,7 @@ export async function GET() {
 
 // 更新设置
 export async function PUT(req: NextRequest) {
-  const guard = requireAdmin()
+  const guard = await requireAdmin()
   if (guard) return guard
 
   try {

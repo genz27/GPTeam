@@ -3,7 +3,7 @@ import { getDb } from '@/lib/db'
 import { requireAdmin } from '@/lib/serverAuth'
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const guard = requireAdmin()
+  const guard = await requireAdmin()
   if (guard) return guard
 
   const db = getDb()

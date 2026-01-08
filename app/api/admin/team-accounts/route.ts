@@ -4,7 +4,7 @@ import { refreshAccessToken, stToAt, fetchTeamAccountId } from '@/lib/auth'
 import { requireAdmin } from '@/lib/serverAuth'
 
 export async function GET() {
-  const guard = requireAdmin()
+  const guard = await requireAdmin()
   if (guard) return guard
 
   const db = getDb()
@@ -32,7 +32,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const guard = requireAdmin()
+  const guard = await requireAdmin()
   if (guard) return guard
 
   const { name, maxSeats, refreshToken, accountId, tokenType } = await req.json()

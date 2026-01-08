@@ -19,7 +19,7 @@ async function sendTeamInvite(accountId: string, accessToken: string, email: str
 
 export async function POST(req: NextRequest) {
   try {
-    const guard = requireAccess()
+    const guard = await requireAccess()
     if (guard) return guard
 
     const { code, email, teamAccountId } = await req.json()

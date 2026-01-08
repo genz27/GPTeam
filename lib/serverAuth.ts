@@ -4,14 +4,14 @@ import { NextResponse } from 'next/server'
 import { getSetting } from '@/lib/db'
 import { ACCESS_SESSION_COOKIE, ADMIN_SESSION_COOKIE, isSessionValid } from '@/lib/sessions'
 
-export function isAdminAuthenticated(): boolean {
-  const c = cookies()
+export async function isAdminAuthenticated(): Promise<boolean> {
+  const c = await cookies()
   const token = c.get(ADMIN_SESSION_COOKIE)?.value
   return isSessionValid('admin', token)
 }
 
-export function requireAdmin(): NextResponse | null {
-  if (isAdminAuthenticated()) return null
+export async function requireAdmin(): Promise<NextResponse | null> {
+  if (await isAdminAuthenticated()) return null
   return NextResponse.json({ error: '未授权' }, { status: 401 })
 }
 
@@ -20,15 +20,14 @@ export function isAccessKeyConfigured(): boolean {
   return !!accessKey
 }
 
-export function isAccessAuthenticated(): boolean {
+export async function isAccessAuthenticated(): Promise<boolean> {
   if (!isAccessKeyConfigured()) return true
-  const c = cookies()
+  const c = await cookies()
   const token = c.get(ACCESS_SESSION_COOKIE)?.value
   return isSessionValid('access', token)
 }
 
-export function requireAccess(): NextResponse | null {
-  if (isAccessAuthenticated()) return null
+export async function requireAccess(): Promise<NextResponse | null> {
+  if (await isAccessAuthenticated()) return null
   return NextResponse.json({ error: '未授权' }, { status: 401 })
 }
-

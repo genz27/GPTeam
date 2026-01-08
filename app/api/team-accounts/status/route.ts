@@ -3,7 +3,7 @@ import { getDb } from '@/lib/db'
 import { requireAccess } from '@/lib/serverAuth'
 
 export async function GET() {
-  const guard = requireAccess()
+  const guard = await requireAccess()
   if (guard) return guard
 
   try {
