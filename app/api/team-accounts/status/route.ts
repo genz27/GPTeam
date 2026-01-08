@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
+import { unstable_noStore as noStore } from 'next/cache'
 import { getDb } from '@/lib/db'
 import { requireAccess } from '@/lib/serverAuth'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET() {
+  noStore()
   const guard = await requireAccess()
   if (guard) return guard
 
