@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  app:
+    image: ghcr.io/genz27/gpteam:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - ADMIN_PASSWORD=admin123
+    restart: unless-stopped
