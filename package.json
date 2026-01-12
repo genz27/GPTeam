@@ -9,10 +9,13 @@
   },
   "dependencies": {
     "better-sqlite3": "^9.6.0",
+    "https-proxy-agent": "^7.0.6",
     "next": "^14.0.0",
+    "node-fetch": "^3.3.2",
     "proxy-agent": "^6.5.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "socks-proxy-agent": "^8.0.5",
     "undici": "^7.18.2"
   },
   "devDependencies": {

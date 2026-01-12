@@ -31,3 +31,6 @@ npm-debug.log*
 # Build
 dist/
 build/
+
+# Package lock (optional, uncomment if needed)
+# package-lock.json

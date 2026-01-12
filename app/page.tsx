@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Nav from './components/Nav'
 
 interface TeamAccount {
   id: number
@@ -153,6 +154,7 @@ export default function HomePage() {
   if (needsKey === null) {
     return (
       <div style={styles.wrapper}>
+        <Nav />
         <div style={styles.gridBg} />
         <div style={styles.card}>
           <p style={{ color: '#666' }}>加载中...</p>
@@ -165,6 +167,7 @@ export default function HomePage() {
   if (needsKey) {
     return (
       <div style={styles.wrapper}>
+        <Nav />
         <div style={styles.gridBg} />
         <div style={styles.card}>
           <div style={styles.icon}>
@@ -200,6 +203,7 @@ export default function HomePage() {
   if (success) {
     return (
       <div style={styles.wrapper}>
+        <Nav />
         <div style={styles.gridBg} />
         <div style={styles.card}>
           <div style={styles.successIcon}>✓</div>
@@ -214,6 +218,7 @@ export default function HomePage() {
 
   return (
     <div style={styles.wrapper}>
+      <Nav />
       <div style={styles.gridBg} />
       <div style={styles.card}>
         <div style={styles.icon}>

@@ -134,6 +134,24 @@ export default function AdminPage() {
     loadAll()
   }
 
+  const exportUnusedCodes = async () => {
+    const { ok, data } = await api('/codes/export')
+    if (ok && data.codes?.length > 0) {
+      const text = data.codes.join('\n')
+      navigator.clipboard.writeText(text)
+      alert(`已复制 ${data.count} 个未使用邀请码到剪贴板`)
+    } else {
+      alert('没有未使用的邀请码')
+    }
+  }
+
+  const clearUsedCodes = async () => {
+    if (!confirm('确定清除所有已使用的邀请码？')) return
+    const { ok, data } = await api('/codes/clear-used', { method: 'DELETE' })
+    if (ok) { alert(`已清除 ${data.deleted} 个已使用邀请码`); loadAll() }
+    else alert('清除失败')
+  }
+
   const saveSettings = async () => {
     const { ok, data } = await api('/settings', { method: 'PUT', body: JSON.stringify({ access_key: newAccessKey, site_title: newSiteTitle, site_notice: newSiteNotice, proxy_enabled: proxyEnabled, proxy_list: proxyList }) })
     if (ok) { alert('设置已保存'); loadAll() }
@@ -177,6 +195,7 @@ export default function AdminPage() {
             </div>
             <div style={styles.navLinks}>
               <a href="/" style={styles.navLink}>首页</a>
+              <a href="/checkout" style={styles.navLink}>Checkout</a>
             </div>
             <button onClick={logout} style={styles.logoutBtn}>退出</button>
           </div>
@@ -244,6 +263,8 @@ export default function AdminPage() {
                 {accounts.filter(a => a.enabled).map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
               <button onClick={generateCodes} style={styles.btn}>生成邀请码</button>
+              <button onClick={exportUnusedCodes} style={styles.ghostBtn}>导出未使用</button>
+              <button onClick={clearUsedCodes} style={{ ...styles.ghostBtn, color: '#f87171', borderColor: '#7f1d1d' }}>清除已使用</button>
               <button onClick={loadAll} style={styles.ghostBtn}>刷新</button>
             </div>
             <table style={styles.table}>
