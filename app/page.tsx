@@ -126,7 +126,6 @@ export default function HomePage() {
   const handleSubmit = async () => {
     if (!code.trim()) return setError('请输入邀请码')
     if (!email.trim() || !email.includes('@')) return setError('请输入有效邮箱')
-    if (!selectedId) return setError('请选择车位')
 
     setLoading(true)
     setError('')
@@ -134,7 +133,11 @@ export default function HomePage() {
       const res = await fetch('/api/invite/use', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: code.trim(), email: email.trim(), teamAccountId: selectedId }),
+        body: JSON.stringify({ 
+          code: code.trim(), 
+          email: email.trim(), 
+          teamAccountId: selectedId || 'random'  // 如果没选择，传 'random' 表示随机分配
+        }),
         credentials: 'include'
       })
       const data = await res.json()
@@ -243,7 +246,7 @@ export default function HomePage() {
             onChange={e => setSelectedId(e.target.value ? Number(e.target.value) : null)}
             style={styles.select}
           >
-            <option value="">请选择车位</option>
+            <option value="">随机分配（自动选择有空位的车）</option>
             {accounts.map(acc => {
               const available = acc.seatsEntitled - acc.seatsInUse - acc.pendingInvites
               const full = available <= 0

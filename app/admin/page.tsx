@@ -56,6 +56,9 @@ export default function AdminPage() {
   const [batchInviteId, setBatchInviteId] = useState<number | null>(null)
   const [batchEmails, setBatchEmails] = useState('')
   const [batchResults, setBatchResults] = useState<{ email: string; success: boolean; error?: string }[]>([])
+  const [showSmartBatchInvite, setShowSmartBatchInvite] = useState(false)
+  const [smartBatchEmails, setSmartBatchEmails] = useState('')
+  const [smartBatchResults, setSmartBatchResults] = useState<{ email: string; team: string; success: boolean; error?: string }[]>([])
 
   useEffect(() => { checkAuth() }, [])
 
@@ -216,6 +219,66 @@ export default function AdminPage() {
     else alert(data.error || '修改失败')
   }
 
+  const syncAllAccounts = async () => {
+    if (!confirm('确定同步所有启用的车账号？')) return
+    setLoading(true)
+    let success = 0, fail = 0
+    for (const acc of accounts.filter(a => a.enabled && a.accountId)) {
+      const { ok } = await api(`/team-accounts/${acc.id}/sync`, { method: 'POST' })
+      if (ok) success++
+      else fail++
+    }
+    setLoading(false)
+    alert(`同步完成！成功: ${success}, 失败: ${fail}`)
+    loadAll()
+  }
+
+  const clearFullAccounts = async () => {
+    const fullAccounts = accounts.filter(a => a.seatsInUse >= a.seatsEntitled)
+    if (fullAccounts.length === 0) return alert('没有已满的车账号')
+    if (!confirm(`确定删除 ${fullAccounts.length} 个已满车账号？`)) return
+    setLoading(true)
+    for (const acc of fullAccounts) {
+      await api(`/team-accounts/${acc.id}`, { method: 'DELETE' })
+    }
+    setLoading(false)
+    alert(`已删除 ${fullAccounts.length} 个已满车账号`)
+    loadAll()
+  }
+
+  const openSmartBatchInvite = () => {
+    setShowSmartBatchInvite(true)
+    setSmartBatchEmails('')
+    setSmartBatchResults([])
+  }
+
+  const closeSmartBatchInvite = () => {
+    setShowSmartBatchInvite(false)
+    setSmartBatchEmails('')
+    setSmartBatchResults([])
+  }
+
+  const submitSmartBatchInvite = async () => {
+    const emails = smartBatchEmails.split('\n').map(e => e.trim()).filter(Boolean)
+    if (emails.length === 0) return alert('请输入邮箱（一行一个）')
+    
+    setLoading(true)
+    setSmartBatchResults([])
+    const { ok, data } = await api('/team-accounts/smart-batch-invite', { 
+      method: 'POST', 
+      body: JSON.stringify({ emails }) 
+    })
+    setLoading(false)
+    
+    if (ok) {
+      setSmartBatchResults(data.results || [])
+      alert(`智能批量上车完成！成功: ${data.successCount}, 失败: ${data.failCount}`)
+      loadAll()
+    } else {
+      alert(data.error || '批量上车失败')
+    }
+  }
+
   if (loggedIn === null) return <div style={styles.wrapper}><div style={styles.gridBg} /><div style={styles.card}><p style={{ color: '#666' }}>加载中...</p></div></div>
 
   if (!loggedIn) return (
@@ -254,6 +317,9 @@ export default function AdminPage() {
           <div>
             <div style={styles.toolbar}>
               <button onClick={() => setEditingAccount({ name: '', maxSeats: 5, enabled: true, tokenType: 'RT' })} style={styles.btn}>+ 添加车账号</button>
+              <button onClick={syncAllAccounts} disabled={loading} style={styles.ghostBtn}>一键同步</button>
+              <button onClick={openSmartBatchInvite} disabled={loading} style={styles.ghostBtn}>智能批量上车</button>
+              <button onClick={clearFullAccounts} disabled={loading} style={{ ...styles.ghostBtn, color: '#f87171', borderColor: '#7f1d1d' }}>清除已满</button>
               <button onClick={loadAll} style={styles.ghostBtn}>刷新</button>
             </div>
             {editingAccount && (
@@ -305,33 +371,73 @@ export default function AdminPage() {
             {batchInviteId && (
               <div style={styles.modal}>
                 <div style={styles.modalContent}>
-                  <h3 style={styles.formTitle}>批量上车 - {accounts.find(a => a.id === batchInviteId)?.name}</h3>
-                  <div style={styles.formRow}>
-                    <div style={styles.formGroup}>
-                      <label style={styles.formLabel}>邮箱列表（一行一个）</label>
-                      <textarea 
-                        value={batchEmails} 
-                        onChange={e => setBatchEmails(e.target.value)} 
-                        placeholder="user1@example.com&#10;user2@example.com&#10;user3@example.com" 
-                        style={{ ...styles.formInput, minHeight: 150, fontFamily: 'monospace', fontSize: 12 }} 
-                      />
-                    </div>
+                  <div style={styles.modalHeader}>
+                    <h3 style={styles.modalTitle}>批量上车</h3>
+                    <span style={styles.modalSubtitle}>{accounts.find(a => a.id === batchInviteId)?.name}</span>
+                    <button onClick={closeBatchInvite} style={styles.modalClose}>×</button>
                   </div>
-                  {batchResults.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <label style={styles.formLabel}>执行结果</label>
-                      <div style={{ background: '#0a0a0a', border: '1px solid #333', borderRadius: 8, padding: 12, maxHeight: 150, overflow: 'auto', fontSize: 12 }}>
-                        {batchResults.map((r, i) => (
-                          <div key={i} style={{ color: r.success ? '#86efac' : '#fca5a5', marginBottom: 4 }}>
-                            {r.email}: {r.success ? '✓ 成功' : `✗ ${r.error}`}
-                          </div>
-                        ))}
+                  <div style={styles.modalBody}>
+                    <label style={styles.formLabel}>邮箱列表（一行一个）</label>
+                    <textarea 
+                      value={batchEmails} 
+                      onChange={e => setBatchEmails(e.target.value)} 
+                      placeholder="user1@example.com&#10;user2@example.com&#10;user3@example.com" 
+                      style={styles.modalTextarea} 
+                    />
+                    {batchResults.length > 0 && (
+                      <div style={{ marginTop: 16 }}>
+                        <label style={styles.formLabel}>执行结果</label>
+                        <div style={styles.resultBox}>
+                          {batchResults.map((r, i) => (
+                            <div key={i} style={{ color: r.success ? '#86efac' : '#fca5a5', marginBottom: 4 }}>
+                              {r.success ? '✓' : '✗'} {r.email} {!r.success && `- ${r.error}`}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  <div style={styles.formActions}>
+                    )}
+                  </div>
+                  <div style={styles.modalFooter}>
                     <button onClick={closeBatchInvite} style={styles.ghostBtn}>关闭</button>
                     <button onClick={submitBatchInvite} disabled={loading} style={styles.btn}>
+                      {loading ? '发送中...' : '发送邀请'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {showSmartBatchInvite && (
+              <div style={styles.modal}>
+                <div style={styles.modalContent}>
+                  <div style={styles.modalHeader}>
+                    <h3 style={styles.modalTitle}>智能批量上车</h3>
+                    <span style={styles.modalSubtitle}>自动分配有空位的车</span>
+                    <button onClick={closeSmartBatchInvite} style={styles.modalClose}>×</button>
+                  </div>
+                  <div style={styles.modalBody}>
+                    <label style={styles.formLabel}>邮箱列表（一行一个）</label>
+                    <textarea 
+                      value={smartBatchEmails} 
+                      onChange={e => setSmartBatchEmails(e.target.value)} 
+                      placeholder="user1@example.com&#10;user2@example.com&#10;user3@example.com" 
+                      style={styles.modalTextarea} 
+                    />
+                    {smartBatchResults.length > 0 && (
+                      <div style={{ marginTop: 16 }}>
+                        <label style={styles.formLabel}>执行结果</label>
+                        <div style={styles.resultBox}>
+                          {smartBatchResults.map((r, i) => (
+                            <div key={i} style={{ color: r.success ? '#86efac' : '#fca5a5', marginBottom: 4 }}>
+                              {r.success ? '✓' : '✗'} {r.email} → {r.team} {!r.success && `- ${r.error}`}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={styles.modalFooter}>
+                    <button onClick={closeSmartBatchInvite} style={styles.ghostBtn}>关闭</button>
+                    <button onClick={submitSmartBatchInvite} disabled={loading} style={styles.btn}>
                       {loading ? '发送中...' : '发送邀请'}
                     </button>
                   </div>
@@ -451,6 +557,14 @@ const styles: Record<string, React.CSSProperties> = {
   sectionTitle: { margin: '0 0 20px', fontSize: 14, color: '#fff', fontWeight: 500 },
   formGroup: { flex: 1, minWidth: 200 },
   formLabel: { display: 'block', color: '#888', fontSize: 12, marginBottom: 8 },
-  modal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modalContent: { background: '#111', border: '1px solid #222', borderRadius: 12, padding: 24, width: '100%', maxWidth: 500 }
+  modal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' },
+  modalContent: { background: '#111', border: '1px solid #333', borderRadius: 16, width: '100%', maxWidth: 480, overflow: 'hidden' },
+  modalHeader: { display: 'flex', alignItems: 'center', gap: 12, padding: '20px 24px', borderBottom: '1px solid #222', background: '#0a0a0a' },
+  modalTitle: { margin: 0, fontSize: 16, fontWeight: 600, color: '#fff' },
+  modalSubtitle: { fontSize: 13, color: '#666', flex: 1 },
+  modalClose: { width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid #333', borderRadius: 8, color: '#666', fontSize: 20, cursor: 'pointer', lineHeight: 1 },
+  modalBody: { padding: 24 },
+  modalFooter: { display: 'flex', gap: 12, justifyContent: 'flex-end', padding: '16px 24px', borderTop: '1px solid #222', background: '#0a0a0a' },
+  modalTextarea: { width: '100%', minHeight: 180, padding: 16, background: '#0a0a0a', border: '1px solid #333', borderRadius: 12, color: '#fff', fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', outline: 'none' },
+  resultBox: { background: '#0a0a0a', border: '1px solid #333', borderRadius: 8, padding: 12, maxHeight: 150, overflow: 'auto', fontSize: 12, fontFamily: 'monospace' }
 }

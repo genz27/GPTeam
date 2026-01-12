@@ -33,8 +33,24 @@ export async function POST(req: NextRequest) {
     if (!invite) return NextResponse.json({ error: '邀请码不存在' }, { status: 404 })
     if (invite.used) return NextResponse.json({ error: '邀请码已使用' }, { status: 409 })
 
-    const finalTeamId = invite.team_account_id || teamAccountId
-    if (!finalTeamId) return NextResponse.json({ error: '请选择车位' }, { status: 400 })
+    // 确定最终使用的车位
+    let finalTeamId = invite.team_account_id || (teamAccountId !== 'random' ? teamAccountId : null)
+    
+    // 如果没有指定车位或选择随机分配，自动选择有空位的车
+    if (!finalTeamId) {
+      const availableAccount = db.prepare(`
+        SELECT id FROM team_accounts 
+        WHERE enabled = 1 AND account_id IS NOT NULL AND account_id != ''
+        AND (seats_entitled - seats_in_use - pending_invites) > 0
+        ORDER BY (seats_entitled - seats_in_use - pending_invites) DESC
+        LIMIT 1
+      `).get() as { id: number } | undefined
+      
+      if (!availableAccount) {
+        return NextResponse.json({ error: '没有可用的车位' }, { status: 400 })
+      }
+      finalTeamId = availableAccount.id
+    }
 
     const account = db.prepare('SELECT * FROM team_accounts WHERE id = ? AND enabled = 1').get(finalTeamId) as any
     if (!account) return NextResponse.json({ error: '车位不可用' }, { status: 400 })
