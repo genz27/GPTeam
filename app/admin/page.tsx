@@ -59,6 +59,9 @@ export default function AdminPage() {
   const [showSmartBatchInvite, setShowSmartBatchInvite] = useState(false)
   const [smartBatchEmails, setSmartBatchEmails] = useState('')
   const [smartBatchResults, setSmartBatchResults] = useState<{ email: string; team: string; success: boolean; error?: string }[]>([])
+  const [showAutoInvite, setShowAutoInvite] = useState(false)
+  const [autoInviteInput, setAutoInviteInput] = useState('')
+  const [autoInviteResults, setAutoInviteResults] = useState<{ email: string; team: string; inviteSent: boolean; accepted: boolean; error?: string }[]>([])
 
   useEffect(() => { checkAuth() }, [])
 
@@ -279,6 +282,44 @@ export default function AdminPage() {
     }
   }
 
+  const openAutoInvite = () => {
+    setShowAutoInvite(true)
+    setAutoInviteInput('')
+    setAutoInviteResults([])
+  }
+
+  const closeAutoInvite = () => {
+    setShowAutoInvite(false)
+    setAutoInviteInput('')
+    setAutoInviteResults([])
+  }
+
+  const submitAutoInvite = async () => {
+    const lines = autoInviteInput.split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length === 0) return alert('请输入邮箱和RT（格式：邮箱----RT，一行一个）')
+    
+    const items = lines.map(line => {
+      const parts = line.split('----')
+      return { email: parts[0]?.trim(), rt: parts[1]?.trim() }
+    })
+    
+    setLoading(true)
+    setAutoInviteResults([])
+    const { ok, data } = await api('/team-accounts/auto-invite', { 
+      method: 'POST', 
+      body: JSON.stringify({ items }) 
+    })
+    setLoading(false)
+    
+    if (ok) {
+      setAutoInviteResults(data.results || [])
+      alert(`自动上车完成！成功: ${data.successCount}, 部分成功: ${data.partialCount}, 失败: ${data.failCount}`)
+      loadAll()
+    } else {
+      alert(data.error || '自动上车失败')
+    }
+  }
+
   if (loggedIn === null) return <div style={styles.wrapper}><div style={styles.gridBg} /><div style={styles.card}><p style={{ color: '#666' }}>加载中...</p></div></div>
 
   if (!loggedIn) return (
@@ -319,6 +360,7 @@ export default function AdminPage() {
               <button onClick={() => setEditingAccount({ name: '', maxSeats: 5, enabled: true, tokenType: 'RT' })} style={styles.btn}>+ 添加车账号</button>
               <button onClick={syncAllAccounts} disabled={loading} style={styles.ghostBtn}>一键同步</button>
               <button onClick={openSmartBatchInvite} disabled={loading} style={styles.ghostBtn}>智能批量上车</button>
+              <button onClick={openAutoInvite} disabled={loading} style={styles.ghostBtn}>自动上车</button>
               <button onClick={clearFullAccounts} disabled={loading} style={{ ...styles.ghostBtn, color: '#f87171', borderColor: '#7f1d1d' }}>清除已满</button>
               <button onClick={loadAll} style={styles.ghostBtn}>刷新</button>
             </div>
@@ -439,6 +481,46 @@ export default function AdminPage() {
                     <button onClick={closeSmartBatchInvite} style={styles.ghostBtn}>关闭</button>
                     <button onClick={submitSmartBatchInvite} disabled={loading} style={styles.btn}>
                       {loading ? '发送中...' : '发送邀请'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {showAutoInvite && (
+              <div style={styles.modal}>
+                <div style={styles.modalContent}>
+                  <div style={styles.modalHeader}>
+                    <h3 style={styles.modalTitle}>自动上车</h3>
+                    <span style={styles.modalSubtitle}>发送邀请并自动同意</span>
+                    <button onClick={closeAutoInvite} style={styles.modalClose}>×</button>
+                  </div>
+                  <div style={styles.modalBody}>
+                    <label style={styles.formLabel}>邮箱和RT（格式：邮箱----RT，一行一个）</label>
+                    <textarea 
+                      value={autoInviteInput} 
+                      onChange={e => setAutoInviteInput(e.target.value)} 
+                      placeholder="user1@example.com----rt_xxx...&#10;user2@example.com----rt_yyy..." 
+                      style={styles.modalTextarea} 
+                    />
+                    {autoInviteResults.length > 0 && (
+                      <div style={{ marginTop: 16 }}>
+                        <label style={styles.formLabel}>执行结果</label>
+                        <div style={styles.resultBox}>
+                          {autoInviteResults.map((r, i) => (
+                            <div key={i} style={{ color: r.accepted ? '#86efac' : r.inviteSent ? '#fcd34d' : '#fca5a5', marginBottom: 4 }}>
+                              {r.accepted ? '✓✓' : r.inviteSent ? '✓✗' : '✗✗'} {r.email} → {r.team} 
+                              {r.accepted ? ' (已上车)' : r.inviteSent ? ' (已邀请未同意)' : ''} 
+                              {r.error && ` - ${r.error}`}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={styles.modalFooter}>
+                    <button onClick={closeAutoInvite} style={styles.ghostBtn}>关闭</button>
+                    <button onClick={submitAutoInvite} disabled={loading} style={styles.btn}>
+                      {loading ? '处理中...' : '开始上车'}
                     </button>
                   </div>
                 </div>
