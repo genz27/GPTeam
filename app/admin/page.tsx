@@ -53,6 +53,9 @@ export default function AdminPage() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [batchInviteId, setBatchInviteId] = useState<number | null>(null)
+  const [batchEmails, setBatchEmails] = useState('')
+  const [batchResults, setBatchResults] = useState<{ email: string; success: boolean; error?: string }[]>([])
 
   useEffect(() => { checkAuth() }, [])
 
@@ -121,6 +124,52 @@ export default function AdminPage() {
     setLoading(false)
     if (ok) { alert(`同步成功！已用: ${data.seatsInUse}`); loadAll() }
     else alert(data.error || '同步失败')
+  }
+
+  const getCheckoutLink = async (id: number) => {
+    setLoading(true)
+    const { ok, data } = await api(`/team-accounts/${id}/checkout`, { method: 'POST' })
+    setLoading(false)
+    if (ok && data.link) {
+      navigator.clipboard.writeText(data.link)
+      alert('Checkout 链接已复制到剪贴板:\n\n' + data.link)
+    } else {
+      alert(data.error || '获取失败')
+    }
+  }
+
+  const openBatchInvite = (id: number) => {
+    setBatchInviteId(id)
+    setBatchEmails('')
+    setBatchResults([])
+  }
+
+  const closeBatchInvite = () => {
+    setBatchInviteId(null)
+    setBatchEmails('')
+    setBatchResults([])
+  }
+
+  const submitBatchInvite = async () => {
+    if (!batchInviteId) return
+    const emails = batchEmails.split('\n').map(e => e.trim()).filter(Boolean)
+    if (emails.length === 0) return alert('请输入邮箱（一行一个）')
+    
+    setLoading(true)
+    setBatchResults([])
+    const { ok, data } = await api(`/team-accounts/${batchInviteId}/batch-invite`, { 
+      method: 'POST', 
+      body: JSON.stringify({ emails }) 
+    })
+    setLoading(false)
+    
+    if (ok) {
+      setBatchResults(data.results || [])
+      alert(`批量上车完成！成功: ${data.successCount}, 失败: ${data.failCount}`)
+      loadAll()
+    } else {
+      alert(data.error || '批量上车失败')
+    }
   }
 
   const generateCodes = async () => {
@@ -244,6 +293,8 @@ export default function AdminPage() {
                     <td style={styles.td}>{acc.lastSync || '-'}</td>
                     <td style={styles.td}>
                       <button onClick={() => syncAccount(acc.id)} disabled={loading} style={styles.actionBtn}>同步</button>
+                      <button onClick={() => getCheckoutLink(acc.id)} disabled={loading} style={styles.actionBtn}>Checkout</button>
+                      <button onClick={() => openBatchInvite(acc.id)} disabled={loading || !acc.accountId} style={styles.actionBtn}>批量上车</button>
                       <button onClick={() => setEditingAccount(acc)} style={styles.actionBtn}>编辑</button>
                       <button onClick={() => deleteAccount(acc.id)} style={{ ...styles.actionBtn, color: '#f87171' }}>删除</button>
                     </td>
@@ -251,6 +302,42 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
+            {batchInviteId && (
+              <div style={styles.modal}>
+                <div style={styles.modalContent}>
+                  <h3 style={styles.formTitle}>批量上车 - {accounts.find(a => a.id === batchInviteId)?.name}</h3>
+                  <div style={styles.formRow}>
+                    <div style={styles.formGroup}>
+                      <label style={styles.formLabel}>邮箱列表（一行一个）</label>
+                      <textarea 
+                        value={batchEmails} 
+                        onChange={e => setBatchEmails(e.target.value)} 
+                        placeholder="user1@example.com&#10;user2@example.com&#10;user3@example.com" 
+                        style={{ ...styles.formInput, minHeight: 150, fontFamily: 'monospace', fontSize: 12 }} 
+                      />
+                    </div>
+                  </div>
+                  {batchResults.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={styles.formLabel}>执行结果</label>
+                      <div style={{ background: '#0a0a0a', border: '1px solid #333', borderRadius: 8, padding: 12, maxHeight: 150, overflow: 'auto', fontSize: 12 }}>
+                        {batchResults.map((r, i) => (
+                          <div key={i} style={{ color: r.success ? '#86efac' : '#fca5a5', marginBottom: 4 }}>
+                            {r.email}: {r.success ? '✓ 成功' : `✗ ${r.error}`}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div style={styles.formActions}>
+                    <button onClick={closeBatchInvite} style={styles.ghostBtn}>关闭</button>
+                    <button onClick={submitBatchInvite} disabled={loading} style={styles.btn}>
+                      {loading ? '发送中...' : '发送邀请'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -363,5 +450,7 @@ const styles: Record<string, React.CSSProperties> = {
   settingsSection: { background: '#111', border: '1px solid #222', borderRadius: 12, padding: 24, marginBottom: 20 },
   sectionTitle: { margin: '0 0 20px', fontSize: 14, color: '#fff', fontWeight: 500 },
   formGroup: { flex: 1, minWidth: 200 },
-  formLabel: { display: 'block', color: '#888', fontSize: 12, marginBottom: 8 }
+  formLabel: { display: 'block', color: '#888', fontSize: 12, marginBottom: 8 },
+  modal: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalContent: { background: '#111', border: '1px solid #222', borderRadius: 12, padding: 24, width: '100%', maxWidth: 500 }
 }
