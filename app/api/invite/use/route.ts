@@ -28,10 +28,22 @@ export async function POST(req: NextRequest) {
     if (!email || !email.includes('@')) return NextResponse.json({ error: '请输入有效邮箱' }, { status: 400 })
 
     const db = getDb()
-    const invite = db.prepare('SELECT * FROM invite_codes WHERE code = ?').get(code.toUpperCase()) as any
-
-    if (!invite) return NextResponse.json({ error: '邀请码不存在' }, { status: 404 })
-    if (invite.used) return NextResponse.json({ error: '邀请码已使用' }, { status: 409 })
+    const upperCode = code.toUpperCase()
+    
+    // 使用事务确保一码一人，先尝试标记为已使用
+    const updateResult = db.prepare(`
+      UPDATE invite_codes SET used = 1, used_email = ?, used_at = datetime('now')
+      WHERE code = ? AND used = 0
+    `).run(email, upperCode)
+    
+    // 如果没有更新任何行，说明邀请码不存在或已被使用
+    if (updateResult.changes === 0) {
+      const invite = db.prepare('SELECT * FROM invite_codes WHERE code = ?').get(upperCode) as any
+      if (!invite) return NextResponse.json({ error: '邀请码不存在' }, { status: 404 })
+      return NextResponse.json({ error: '邀请码已使用' }, { status: 409 })
+    }
+    
+    const invite = db.prepare('SELECT * FROM invite_codes WHERE code = ?').get(upperCode) as any
 
     // 确定最终使用的车位
     let finalTeamId = invite.team_account_id || (teamAccountId !== 'random' ? teamAccountId : null)
@@ -69,14 +81,19 @@ export async function POST(req: NextRequest) {
     // 发送邀请
     const result = await sendTeamInvite(account.account_id, accessToken, email)
     if (!result.ok) {
+      // 发送失败，回滚邀请码状态
+      db.prepare(`
+        UPDATE invite_codes SET used = 0, used_email = NULL, used_at = NULL
+        WHERE code = ?
+      `).run(upperCode)
       return NextResponse.json({ error: `发送邀请失败: ${result.body}` }, { status: 400 })
     }
 
-    // 标记邀请码已使用
+    // 更新邀请码的车位信息
     db.prepare(`
-      UPDATE invite_codes SET used = 1, used_email = ?, used_at = datetime('now'), team_account_id = ?
+      UPDATE invite_codes SET team_account_id = ?
       WHERE code = ?
-    `).run(email, finalTeamId, code.toUpperCase())
+    `).run(finalTeamId, upperCode)
 
     // 更新车位状态
     db.prepare('UPDATE team_accounts SET pending_invites = pending_invites + 1 WHERE id = ?').run(finalTeamId)

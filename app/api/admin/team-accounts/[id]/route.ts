@@ -102,12 +102,17 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (guard) return guard
 
   const db = getDb()
-  const count = db
-    .prepare('SELECT COUNT(*) as c FROM invite_codes WHERE team_account_id = ?')
+  
+  // 先删除该车位下所有已使用的邀请码
+  db.prepare('DELETE FROM invite_codes WHERE team_account_id = ? AND used = 1').run(params.id)
+  
+  // 检查是否还有未使用的邀请码
+  const unusedCount = db
+    .prepare('SELECT COUNT(*) as c FROM invite_codes WHERE team_account_id = ? AND used = 0')
     .get(params.id) as any
 
-  if (count?.c > 0) {
-    return NextResponse.json({ error: '该车位下有邀请码，无法删除' }, { status: 400 })
+  if (unusedCount?.c > 0) {
+    return NextResponse.json({ error: `该车位下还有 ${unusedCount.c} 个未使用的邀请码，无法删除` }, { status: 400 })
   }
 
   db.prepare('DELETE FROM team_accounts WHERE id = ?').run(params.id)
